@@ -22,7 +22,7 @@ pub fn main() !void {
     );
     defer io_uring.deinit();
 
-    const timer_fd = try posix.timerfd_create(linux.CLOCK.REALTIME, linux.TFD{ ._0 = 0 });
+    const timer_fd = try posix.timerfd_create(linux.CLOCK.REALTIME, .{});
     defer posix.close(timer_fd);
 
     clock_reset: while (true) {
@@ -34,7 +34,15 @@ pub fn main() !void {
             .it_value = .{ .tv_sec = now.tv_sec + 1, .tv_nsec = 0 },
             .it_interval = .{ .tv_sec = 1, .tv_nsec = 0 },
         };
-        try posix.timerfd_settime(timer_fd, .{ .ABSTIME = true, .CANCEL_ON_SET = true }, &tspec, null);
+        try posix.timerfd_settime(
+            timer_fd,
+            .{
+                .ABSTIME = true,
+                .CANCEL_ON_SET = true,
+            },
+            &tspec,
+            null,
+        );
 
         while (true) {
             var sqe: *sqe_t = undefined;
