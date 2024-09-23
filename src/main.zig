@@ -23,35 +23,40 @@ pub fn main() !void {
     defer io_uring.deinit();
 
     const timer_fd = try posix.timerfd_create(linux.CLOCK.REALTIME, linux.TFD{ ._0 = 0 });
+    defer posix.close(timer_fd);
 
-    var now: posix.timespec = undefined;
-    try posix.clock_gettime(linux.CLOCK.REALTIME, &now);
-    now.tv_nsec = 0;
+    clock_reset: while (true) {
+        var now: posix.timespec = undefined;
+        try posix.clock_gettime(linux.CLOCK.REALTIME, &now);
+        now.tv_nsec = 0;
 
-    var tspec: linux.itimerspec = .{
-        .it_value = .{ .tv_sec = now.tv_sec + 1, .tv_nsec = 0 },
-        .it_interval = .{ .tv_sec = 1, .tv_nsec = 0 },
-    };
-    try posix.timerfd_settime(timer_fd, .{ .ABSTIME = true, .CANCEL_ON_SET = true }, &tspec, null);
+        var tspec: linux.itimerspec = .{
+            .it_value = .{ .tv_sec = now.tv_sec + 1, .tv_nsec = 0 },
+            .it_interval = .{ .tv_sec = 1, .tv_nsec = 0 },
+        };
+        try posix.timerfd_settime(timer_fd, .{ .ABSTIME = true, .CANCEL_ON_SET = true }, &tspec, null);
 
-    while (true) {
-        var sqe: *sqe_t = undefined;
-        var buf: [8]u8 = undefined;
-        var buf2: [256]u8 = undefined;
+        while (true) {
+            var sqe: *sqe_t = undefined;
+            var buf: [8]u8 = undefined;
+            var buf2: [256]u8 = undefined;
 
-        const n = write_time_fmt(@ptrCast(&now), &buf2);
+            const n = write_time_fmt(@ptrCast(&now), &buf2);
 
-        sqe = try io_uring.write(0, stdout.handle, buf2[0..n], 0);
-        sqe.flags |= linux.IOSQE_CQE_SKIP_SUCCESS;
-        sqe = try io_uring.read(1, timer_fd, .{ .buffer = &buf }, 0);
+            sqe = try io_uring.write(0, stdout.handle, buf2[0..n], 0);
+            sqe.flags |= linux.IOSQE_CQE_SKIP_SUCCESS;
+            sqe = try io_uring.read(1, timer_fd, .{ .buffer = &buf }, 0);
 
-        _ = try io_uring.submit_and_wait(1);
+            _ = try io_uring.submit_and_wait(1);
 
-        const cqe = try io_uring.copy_cqe();
-        _ = cqe;
+            const cqe = try io_uring.copy_cqe();
+            if (cqe.res != 8) {
+                continue :clock_reset;
+            }
 
-        const dt: u64 = @as(u64, @bitCast(buf)) * 1;
-        now.tv_sec += @intCast(dt);
+            const dt: u64 = @as(u64, @bitCast(buf)) * 1;
+            now.tv_sec += @intCast(dt);
+        }
     }
 }
 
