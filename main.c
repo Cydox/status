@@ -39,7 +39,7 @@ int main (void) {
 		int timer_fd = timerfd_create(CLOCK_REALTIME, 0);
 		assert(timer_fd >= 0);
 
-		timerfd_settime(
+		r = timerfd_settime(
 			timer_fd,
 			TFD_TIMER_ABSTIME | TFD_TIMER_CANCEL_ON_SET,
 			&tspec,
