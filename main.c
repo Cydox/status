@@ -56,8 +56,6 @@ static void run(int timer_fd, struct timespec *now) {
 
 	int r;
 
-	now->tv_nsec = 0;
-
 	while (1) {
 		char read_buf[8];
 
@@ -86,6 +84,8 @@ int main (void) {
 		struct timespec now;
 		r = clock_gettime(CLOCK_REALTIME, &now);
 		assert(!r);
+
+		now.tv_nsec = 0;
 
 		setup_timerfd(timer_fd, &now);
 
