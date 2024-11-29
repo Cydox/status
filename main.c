@@ -74,7 +74,7 @@ static void run(int timer_fd, struct timespec *now) {
 	}
 }
 
-int main (void) {
+int main(void) {
 	int r;
 	
 	int timer_fd = timerfd_create(CLOCK_REALTIME, 0);
